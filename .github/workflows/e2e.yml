@@ -12,6 +12,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Check inline JavaScript syntax
+        run: node scripts/check-inline-syntax.cjs
       - run: npm install
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
