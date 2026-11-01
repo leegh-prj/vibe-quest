@@ -16,10 +16,15 @@ jobs:
         run: node scripts/check-inline-syntax.cjs
       - run: npm install
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - name: Run browser regression suite
+        run: npm run test:e2e
+        env:
+          CI: 'true'
       - name: Upload playwright artifacts
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: test-results/
+          path: |
+            test-results/
+            playwright-report/
