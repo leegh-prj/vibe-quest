@@ -136,3 +136,41 @@ test('quest completion cannot proceed when storage is blocked', async ({ page })
   await expect(page.locator('#feedback')).toContainText('저장');
   expect(await page.evaluate(() => data.done[0])).not.toBe(true);
 });
+
+test('complete all seven quests with valid evidence and retain progress after reload', async ({ page }) => {
+  await createProject(page, '웹사이트', '7단계 완주 시나리오');
+  await page.locator('.step').first().click();
+  for (let i = 0; i < 7; i++) {
+    await expect(page.getByText('QUEST ' + (i + 1) + ' / 7')).toBeVisible();
+    const answer = await page.evaluate(i => LESSON_LIBRARY[i].correct, i);
+    await page.locator('.quiz-option').nth(answer).click();
+    for (const checkbox of await page.locator('.verify').all()) await checkbox.check();
+    await page.locator('#result').fill('https://example.com/step-' + (i + 1));
+    await page.locator('#memo').fill('브라우저에서 실제 결과를 점검했습니다.');
+    await page.getByRole('button', { name: /완료하고 다음/ }).click();
+  }
+  await expect(page.getByText('실전 7단계 완주!')).toBeVisible();
+  await page.reload();
+  await page.evaluate(() => dashboard());
+  await expect(page.getByText('완료 7 / 7 퀘스트')).toBeVisible();
+});
+
+test('backup then restore preserves progress and current project', async ({ page }) => {
+  await createProject(page, '웹사이트', '백업 왕복 시나리오');
+  await page.locator('.step').first().click();
+  await page.locator('#memo').fill('왕복 테스트 메모');
+  await page.getByRole('button', { name: /내 로드맵/ }).click();
+  await page.getByRole('button', { name: /전체 기록 백업/ }).click();
+  const downloadEvent = page.waitForEvent('download');
+  await page.getByRole('button', { name: /백업 파일 다운로드/ }).click();
+  const download = await downloadEvent;
+  const temp = await download.path();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('vibequest-v1')));
+  await page.evaluate(() => localStorage.clear());
+  page.once('dialog', dialog => dialog.accept());
+  await page.locator('#backupFile').setInputFiles(temp);
+  await expect(page.getByText('백업 왕복 시나리오').first()).toBeVisible();
+  const restored = await page.evaluate(() => JSON.parse(localStorage.getItem('vibequest-v1')));
+  expect(restored.notes['0']).toEqual(saved.notes['0']);
+  expect(restored.activeId).toEqual(saved.activeId);
+});
