@@ -242,3 +242,16 @@ test('failed manual save never displays success confirmation', async ({ page }) 
   await expect(page.locator('#feedback')).toContainText('저장하지 못했습니다');
   await expect(page.locator('#feedback')).not.toContainText('학습 기록을 저장했습니다');
 });
+
+test('quest completion stops on failed evidence save before changing progress', async ({ page }) => {
+  await createProject(page, '웹사이트', '저장 실패 완료 방지');
+  await page.locator('.step').first().click();
+  const answer = await page.evaluate(() => LESSON_LIBRARY[0].correct);
+  await page.locator('.quiz-option').nth(answer).click();
+  for (const checkbox of await page.locator('.verify').all()) await checkbox.check();
+  await page.locator('#result').fill('https://example.com/proof');
+  await page.evaluate(() => { Storage.prototype.setItem = () => { throw new DOMException('quota exceeded', 'QuotaExceededError'); }; });
+  await page.getByRole('button', { name: /완료하고 다음/ }).click();
+  await expect(page.locator('#feedback')).toContainText('저장하지 못했습니다');
+  expect(await page.evaluate(() => Boolean(data.done[0]))).toBe(false);
+});
