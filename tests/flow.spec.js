@@ -74,3 +74,14 @@ test('invalid backup does not replace existing project data', async ({ page }) =
   const after = await page.evaluate(() => localStorage.getItem('vibequest-v1'));
   expect(after).toBe(before);
 });
+
+test('malformed saved state does not crash landing page', async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem('vibequest-v1', JSON.stringify({
+    type: 'invalid', done: null, evidence: null, notes: [], criteria: 'broken',
+    aiHistory: null, projects: [{ type: 'missing', done: [] }]
+  })));
+  await page.reload();
+  await expect(page.getByRole('button', { name: /새 프로젝트 시작하기/ })).toBeVisible();
+  await page.getByRole('button', { name: /새 프로젝트 시작하기/ }).click();
+  await expect(page.locator('.choice').first()).toBeVisible();
+});
