@@ -57,3 +57,20 @@ test('downloaded backup is a JSON file', async ({ page }) => {
   await page.getByRole('button', { name: /백업 파일 다운로드/ }).click();
   expect((await downloaded).suggestedFilename()).toBe('vibe-quest-backup.json');
 });
+
+test('invalid backup does not replace existing project data', async ({ page }) => {
+  await createProject(page, '웹사이트', '복원 보호 테스트');
+  await page.getByRole('button', { name: /전체 기록 백업/ }).click();
+  const before = await page.evaluate(() => localStorage.getItem('vibequest-v1'));
+  await page.locator('#backupFile').setInputFiles({
+    name: 'bad-backup.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify({
+      format: 'vibequest-backup', version: 1,
+      data: { type: 'web', description: '손상된 백업', done: [], projects: [{ type: 'wrong', description: 'bad', done: [] }] }
+    }))
+  });
+  await expect(page.locator('#restoreStatus')).toContainText('올바른 VIBE QUEST 백업 파일');
+  const after = await page.evaluate(() => localStorage.getItem('vibequest-v1'));
+  expect(after).toBe(before);
+});
