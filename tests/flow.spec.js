@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
 
 async function createProject(page, type, description, fresh = false) {
   if (fresh) await page.getByRole('button', { name: /새 프로젝트 시작/ }).click();
-  else await page.getByRole('button', { name: /지금 시작하기/ }).click();
+  else await page.getByRole('button', { name: /새 프로젝트 시작하기/ }).click();
   await page.locator('.choice').filter({ hasText: type }).first().click();
   await page.getByRole('button', { name: /다음/ }).click();
   await page.locator('#idea').fill(description);
