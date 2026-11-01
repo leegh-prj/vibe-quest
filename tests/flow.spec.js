@@ -275,3 +275,13 @@ test('project list excludes abandoned empty onboarding draft', async ({ page }) 
   expect(state.projects).toHaveLength(0);
   await expect(page.getByText('내 프로젝트', { exact: true })).toBeVisible();
 });
+
+test('malformed quest progress is limited to seven boolean slots', async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem('vibequest-v1', JSON.stringify({
+    type: 'web', description: '복구 확인', done: [1, 0, 'yes', null, false, true, 0, true, true]
+  })));
+  await page.reload();
+  const progress = await page.evaluate(() => data.done);
+  expect(progress).toEqual([true, false, true, false, false, true, false]);
+  await expect(page.getByRole('button', { name: /새 프로젝트 시작하기/ })).toBeVisible();
+});
