@@ -255,3 +255,15 @@ test('quest completion stops on failed evidence save before changing progress', 
   await expect(page.locator('#feedback')).toContainText('저장하지 못했습니다');
   expect(await page.evaluate(() => Boolean(data.done[0]))).toBe(false);
 });
+
+test('backup export still downloads if localStorage write fails', async ({ page }) => {
+  await createProject(page, '웹사이트', '저장 실패 백업 테스트');
+  await page.getByRole('button', { name: /전체 기록 백업/ }).click();
+  await page.evaluate(() => {
+    Storage.prototype.setItem = () => { throw new DOMException('quota exceeded', 'QuotaExceededError'); };
+  });
+  const pendingDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: /백업 파일 다운로드/ }).click();
+  const download = await pendingDownload;
+  expect(download.suggestedFilename()).toBe('vibe-quest-backup.json');
+});
