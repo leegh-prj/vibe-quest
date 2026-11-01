@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('close', () => { if (errors.length) console.error('Browser errors:', errors.join(' | ')); });
   await page.goto('/');
   await page.evaluate(() => localStorage.clear());
   await page.reload();
@@ -189,4 +192,25 @@ test('abandoned empty onboarding drafts are not saved as projects', async ({ pag
   await page.getByRole('button', { name: /맞춤 로드맵 만들기/ }).click();
   const result = await page.evaluate(() => JSON.parse(localStorage.getItem('vibequest-v1')));
   expect(result.projects).toHaveLength(1);
+});
+
+test('home loads without JavaScript errors', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.reload();
+  await expect(page.getByRole('button', { name: /새 프로젝트 시작하기/ })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('wrong quiz answer cannot unlock quest completion', async ({ page }) => {
+  await createProject(page, '웹사이트', '퀴즈 오답 검증');
+  await page.locator('.step').first().click();
+  const correct = await page.evaluate(() => LESSON_LIBRARY[0].correct);
+  const wrong = correct === 0 ? 1 : 0;
+  await page.locator('.quiz-option').nth(wrong).click();
+  await expect(page.locator('#quizFeedback')).toContainText('다시 생각해 보세요');
+  for (const check of await page.locator('.verify').all()) await check.check();
+  await page.locator('#result').fill('https://example.com/proof');
+  await page.getByRole('button', { name: /완료하고 다음/ }).click();
+  await expect(page.locator('#feedback')).toContainText('이해도 확인 문제');
 });
