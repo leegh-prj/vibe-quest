@@ -106,7 +106,7 @@ test('narrow mobile layout has no horizontal page overflow', async ({ page }) =>
 });
 
 test('all five tracks show their own exercise guidance', async ({ page }) => {
-  for (const type of ['웹사이트','앱','게임','자동화','그냥 탐색']) {
+  for (const type of ['웹사이트','웹앱·모바일 앱','게임','AI 도구·자동화','범용 학습']) {
     await page.goto('/');
     await page.getByRole('button', { name: /새 프로젝트 시작하기/ }).click();
     await page.locator('.choice').filter({ hasText: type }).first().click();
