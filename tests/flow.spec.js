@@ -127,7 +127,8 @@ test('all five tracks show their own exercise guidance', async ({ page }) => {
 test('quest completion cannot proceed when storage is blocked', async ({ page }) => {
   await createProject(page, '웹사이트', '저장 공간 테스트');
   await page.locator('.step').first().click();
-  await page.locator('.quiz-option').nth(1).click();
+  const correct = await page.evaluate(() => LESSON_LIBRARY[0].correct);
+  await page.locator('.quiz-option').nth(correct).click();
   await page.locator('.verify').evaluateAll(nodes => nodes.forEach(el => {el.checked = true; el.dispatchEvent(new Event('change', { bubbles:true }))}));
   await page.locator('#result').fill('https://example.com/project');
   await page.evaluate(() => {
@@ -156,6 +157,9 @@ test('complete all seven quests with valid evidence and retain progress after re
   await page.reload();
   await page.evaluate(() => dashboard());
   await expect(page.getByText('완료 7 / 7 퀘스트')).toBeVisible();
+  const completed = await page.evaluate(() => JSON.parse(localStorage.getItem('vibequest-v1')));
+  expect(completed.done.filter(Boolean)).toHaveLength(7);
+  expect(Object.keys(completed.quizPassed).filter(key => completed.quizPassed[key])).toHaveLength(7);
 });
 
 test('backup then restore preserves progress and current project', async ({ page }) => {
