@@ -174,3 +174,19 @@ test('backup then restore preserves progress and current project', async ({ page
   expect(restored.notes['0']).toEqual(saved.notes['0']);
   expect(restored.activeId).toEqual(saved.activeId);
 });
+
+test('abandoned empty onboarding drafts are not saved as projects', async ({ page }) => {
+  await page.getByRole('button', { name: /새 프로젝트 시작하기/ }).click();
+  await page.evaluate(() => start());
+  await page.evaluate(() => start());
+  const state = await page.evaluate(() => JSON.parse(localStorage.getItem('vibequest-v1')));
+  expect(state.projects).toHaveLength(0);
+  await page.locator('.choice').first().click();
+  await page.getByRole('button', { name: /다음/ }).click();
+  await page.locator('#idea').fill('완료된 프로젝트');
+  await page.getByRole('button', { name: /다음/ }).click();
+  await page.getByRole('button', { name: /다음/ }).click();
+  await page.getByRole('button', { name: /맞춤 로드맵 만들기/ }).click();
+  const result = await page.evaluate(() => JSON.parse(localStorage.getItem('vibequest-v1')));
+  expect(result.projects).toHaveLength(1);
+});
