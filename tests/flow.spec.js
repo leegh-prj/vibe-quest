@@ -218,3 +218,15 @@ test('wrong quiz answer cannot unlock quest completion', async ({ page }) => {
   await page.getByRole('button', { name: /완료하고 다음/ }).click();
   await expect(page.locator('#feedback')).toContainText('이해도 확인 문제');
 });
+
+test('completed project with empty description is preserved when starting another', async ({ page }) => {
+  await page.getByRole('button', { name: /새 프로젝트 시작하기/ }).click();
+  await page.getByRole('button', { name: /다음/ }).click();
+  await page.getByRole('button', { name: /다음/ }).click();
+  await page.getByRole('button', { name: /다음/ }).click();
+  await page.getByRole('button', { name: /맞춤 로드맵 만들기/ }).click();
+  const first = await page.evaluate(() => data.activeId);
+  await page.getByRole('button', { name: /새 프로젝트 시작/ }).click();
+  const state = await page.evaluate(() => JSON.parse(localStorage.getItem('vibequest-v1')));
+  expect(state.projects.some(p => p.activeId === first)).toBeTruthy();
+});
