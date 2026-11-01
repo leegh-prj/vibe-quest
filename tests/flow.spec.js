@@ -85,3 +85,22 @@ test('malformed saved state does not crash landing page', async ({ page }) => {
   await page.getByRole('button', { name: /새 프로젝트 시작하기/ }).click();
   await expect(page.locator('.choice').first()).toBeVisible();
 });
+
+test('QA checklist persists after project reload', async ({ page }) => {
+  await createProject(page, '웹사이트', 'QA 저장 검증');
+  await page.locator('.step').first().click();
+  await page.locator('.qa-check').first().check();
+  await expect(page.locator('#qaCount')).toContainText('1 /');
+  await page.reload();
+  await page.evaluate(() => dashboard());
+  await page.locator('.step').first().click();
+  await expect(page.locator('.qa-check').first()).toBeChecked();
+});
+
+test('narrow mobile layout has no horizontal page overflow', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await createProject(page, '웹사이트', '모바일 점검');
+  await page.locator('.step').first().click();
+  const width = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, viewport: window.innerWidth }));
+  expect(width.scroll).toBeLessThanOrEqual(width.viewport + 2);
+});
