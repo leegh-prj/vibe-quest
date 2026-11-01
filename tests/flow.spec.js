@@ -267,3 +267,11 @@ test('backup export still downloads if localStorage write fails', async ({ page 
   const download = await pendingDownload;
   expect(download.suggestedFilename()).toBe('vibe-quest-backup.json');
 });
+
+test('project list excludes abandoned empty onboarding draft', async ({ page }) => {
+  await page.getByRole('button', { name: /새 프로젝트 시작하기/ }).click();
+  await page.evaluate(() => projectsPage());
+  const state = await page.evaluate(() => JSON.parse(localStorage.getItem('vibequest-v1')));
+  expect(state.projects).toHaveLength(0);
+  await expect(page.getByText('내 프로젝트', { exact: true })).toBeVisible();
+});
