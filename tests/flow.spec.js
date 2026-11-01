@@ -104,3 +104,35 @@ test('narrow mobile layout has no horizontal page overflow', async ({ page }) =>
   const width = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, viewport: window.innerWidth }));
   expect(width.scroll).toBeLessThanOrEqual(width.viewport + 2);
 });
+
+test('all five tracks show their own exercise guidance', async ({ page }) => {
+  for (const type of ['웹사이트','앱','게임','자동화','그냥 탐색']) {
+    await page.goto('/');
+    await page.getByRole('button', { name: /새 프로젝트 시작하기/ }).click();
+    await page.locator('.choice').filter({ hasText: type }).first().click();
+    await page.getByRole('button', { name: /다음/ }).click();
+    await page.locator('#idea').fill(type + ' 테스트');
+    await page.getByRole('button', { name: /다음/ }).click();
+    await page.getByRole('button', { name: /다음/ }).click();
+    await page.getByRole('button', { name: /맞춤 로드맵 만들기/ }).click();
+    await page.locator('.step').first().click();
+    await expect(page.locator('.track-guide')).toBeVisible();
+    await expect(page.locator('.track-guide')).toContainText('맞춤 실습');
+  }
+});
+
+test('quest completion cannot proceed when storage is blocked', async ({ page }) => {
+  await createProject(page, '웹사이트', '저장 공간 테스트');
+  await page.locator('.step').first().click();
+  await page.locator('.quiz-option').nth(1).click();
+  await page.locator('.verify').evaluateAll(nodes => nodes.forEach(el => {el.checked = true; el.dispatchEvent(new Event('change', { bubbles:true }))}));
+  await page.locator('#result').fill('https://example.com/project');
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    window.__originalSetItem = original;
+    Storage.prototype.setItem = function () { throw new DOMException('quota exceeded', 'QuotaExceededError'); };
+  });
+  await page.getByRole('button', { name: /완료하고 다음/ }).click();
+  await expect(page.locator('#feedback')).toContainText('저장');
+  expect(await page.evaluate(() => data.done[0])).not.toBe(true);
+});
