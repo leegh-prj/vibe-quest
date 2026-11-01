@@ -230,3 +230,15 @@ test('completed project with empty description is preserved when starting anothe
   const state = await page.evaluate(() => JSON.parse(localStorage.getItem('vibequest-v1')));
   expect(state.projects.some(p => p.activeId === first)).toBeTruthy();
 });
+
+test('failed manual save never displays success confirmation', async ({ page }) => {
+  await createProject(page, '웹사이트', '저장 실패 메시지 확인');
+  await page.locator('.step').first().click();
+  await page.locator('#memo').fill('저장 장애 재현');
+  await page.evaluate(() => {
+    Storage.prototype.setItem = function () { throw new DOMException('quota exceeded', 'QuotaExceededError'); };
+  });
+  await page.getByRole('button', { name: '진행 저장', exact: true }).click();
+  await expect(page.locator('#feedback')).toContainText('저장하지 못했습니다');
+  await expect(page.locator('#feedback')).not.toContainText('학습 기록을 저장했습니다');
+});
