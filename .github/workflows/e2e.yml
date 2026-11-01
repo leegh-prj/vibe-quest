@@ -3,6 +3,8 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+permissions:
+  contents: read
 jobs:
   e2e:
     runs-on: ubuntu-latest
@@ -20,6 +22,14 @@ jobs:
         run: npm run test:e2e
         env:
           CI: 'true'
+      - name: Publish test summary
+        if: always()
+        run: |
+          if [ -f test-results/results.json ]; then
+            node -e 'const f=require("./test-results/results.json"); const s=f.stats||{}; require("fs").appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## Playwright QA\nPassed: ${s.expected||0}  Failed: ${s.unexpected||0}  Skipped: ${s.skipped||0}\n`);'
+          else
+            echo 'Playwright result missing: test execution did not reach JSON output.' >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Upload playwright artifacts
         if: failure()
         uses: actions/upload-artifact@v4
