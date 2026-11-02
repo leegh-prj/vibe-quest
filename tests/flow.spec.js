@@ -296,3 +296,20 @@ test('corrupted navigation indices are bounded on startup', async ({ page }) => 
   expect(state).toEqual({ step: 3, current: 0 });
   await expect(page.getByRole('button', { name: /새 프로젝트 시작하기/ })).toBeVisible();
 });
+
+test('malformed archived project can be opened safely after reload', async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem('vibequest-v1', JSON.stringify({
+    type: 'web', description: '현재 프로젝트', done: [],
+    activeId: 'active',
+    projects: [{ type: 'game', done: [true, 0, 1, 1, 1, 1, 1, true], activeId: 'damaged',
+      description: null, notes: null, evidence: [], criteria: 'invalid', qa: null }]
+  })));
+  await page.reload();
+  await page.evaluate(() => projectsPage());
+  await page.getByRole('button', { name: /학습 이어가기/ }).first().click();
+  await expect(page.getByText('게임 프로젝트')).toBeVisible();
+  const state = await page.evaluate(() => ({ description: data.description, done: data.done, notes: data.notes }));
+  expect(state.description).toBe('');
+  expect(state.done).toHaveLength(7);
+  expect(state.notes).toEqual({});
+});
