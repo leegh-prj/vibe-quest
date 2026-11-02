@@ -285,3 +285,14 @@ test('malformed quest progress is limited to seven boolean slots', async ({ page
   expect(progress).toEqual([true, false, true, false, false, true, false]);
   await expect(page.getByRole('button', { name: /새 프로젝트 시작하기/ })).toBeVisible();
 });
+
+test('corrupted navigation indices are bounded on startup', async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem('vibequest-v1', JSON.stringify({
+    type: 'web', description: '인덱스 복구', done: [],
+    step: 900, current: -18
+  })));
+  await page.reload();
+  const state = await page.evaluate(() => ({ step: data.step, current: data.current }));
+  expect(state).toEqual({ step: 3, current: 0 });
+  await expect(page.getByRole('button', { name: /새 프로젝트 시작하기/ })).toBeVisible();
+});
