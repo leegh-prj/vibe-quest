@@ -385,3 +385,25 @@ test('quest navigation is blocked if draft cannot be saved', async ({ page }) =>
   await expect(page.getByText('QUEST 1 / 7')).toBeVisible();
   await expect(page.locator('#feedback')).toContainText('저장하지 못했습니다');
 });
+
+test('project overview shows distinct accessible completion progress', async ({ page }) => {
+  await createProject(page, '웹사이트', '진행 중 웹 프로젝트');
+  await page.evaluate(() => { data.done = [true,true,false,false,false,false,false]; archiveCurrent(); save(); });
+  await createProject(page, '게임', '완료한 게임 프로젝트', true);
+  await page.evaluate(() => { data.done = Array(7).fill(true); archiveCurrent(); save(); });
+  await page.getByRole('button', { name: /프로젝트 관리/ }).click();
+  await expect(page.getByText('2개 프로젝트')).toBeVisible();
+  await expect(page.getByText('1개 7단계 완주')).toBeVisible();
+  await expect(page.getByRole('progressbar', { name: '진행 중 웹 프로젝트 학습 완료 단계' })).toHaveAttribute('aria-valuenow', '2');
+  await expect(page.getByRole('progressbar', { name: '완료한 게임 프로젝트 학습 완료 단계' })).toHaveAttribute('aria-valuenow', '7');
+  await page.reload();
+  await page.evaluate(() => projectsPage());
+  await expect(page.getByRole('progressbar', { name: '진행 중 웹 프로젝트 학습 완료 단계' })).toHaveAttribute('aria-valuenow', '2');
+  await expect(page.getByRole('progressbar', { name: '완료한 게임 프로젝트 학습 완료 단계' })).toHaveAttribute('aria-valuenow', '7');
+});
+
+test('empty project library has a useful first-project prompt', async ({ page }) => {
+  await page.evaluate(() => projectsPage());
+  await expect(page.getByText('아직 저장된 프로젝트가 없습니다.')).toBeVisible();
+  await expect(page.getByText('0개 프로젝트')).toBeVisible();
+});
