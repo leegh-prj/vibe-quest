@@ -356,3 +356,32 @@ test('onboarding idea persists when going backward and reloading', async ({ page
   await expect(page.locator('#idea')).toHaveAttribute('maxlength', '1200');
   await expect(page.getByLabel('만들고 싶은 프로젝트 설명 (선택)')).toBeVisible();
 });
+
+test('quest previous and next navigation preserves unsaved draft', async ({ page }) => {
+  await createProject(page, '웹사이트', '퀘스트 이동 점검');
+  await expect(page.getByRole('progressbar', { name: '퀘스트 완료율' })).toHaveAttribute('aria-valuenow', '0');
+  await page.locator('.step').first().click();
+  await expect(page.getByRole('button', { name: /이전 퀘스트/ })).toBeDisabled();
+  await page.locator('#memo').fill('완료 처리 전에도 이동할 수 있는 메모');
+  await page.locator('#result').fill('https://example.com/first');
+  await page.getByRole('button', { name: /다음 퀘스트/ }).click();
+  await expect(page.getByText('QUEST 2 / 7')).toBeVisible();
+  await page.getByRole('button', { name: /이전 퀘스트/ }).click();
+  await expect(page.locator('#memo')).toHaveValue('완료 처리 전에도 이동할 수 있는 메모');
+  await expect(page.locator('#result')).toHaveValue('https://example.com/first');
+  await page.reload();
+  await page.evaluate(() => dashboard());
+  await page.locator('.step').first().click();
+  await expect(page.locator('#memo')).toHaveValue('완료 처리 전에도 이동할 수 있는 메모');
+});
+
+test('quest navigation is blocked if draft cannot be saved', async ({ page }) => {
+  await createProject(page, '웹사이트', '저장 실패 이동 차단');
+  await page.locator('.step').first().click();
+  await page.evaluate(() => {
+    Storage.prototype.setItem = () => { throw new DOMException('quota exceeded', 'QuotaExceededError'); };
+  });
+  await page.getByRole('button', { name: /다음 퀘스트/ }).click();
+  await expect(page.getByText('QUEST 1 / 7')).toBeVisible();
+  await expect(page.locator('#feedback')).toContainText('저장하지 못했습니다');
+});
