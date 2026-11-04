@@ -341,3 +341,18 @@ test('touch targets and reduced motion preferences are supported', async ({ page
   const check = await page.locator('.verify').first().evaluate(el => el.getBoundingClientRect().height);
   expect(check).toBeGreaterThanOrEqual(20);
 });
+
+test('onboarding idea persists when going backward and reloading', async ({ page }) => {
+  await page.getByRole('button', { name: /새 프로젝트 시작하기/ }).click();
+  await expect(page.locator('.choice.active')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: /다음/ }).click();
+  await page.locator('#idea').fill('나만의 모바일 프로젝트');
+  await page.getByRole('button', { name: /이전/ }).click();
+  await page.getByRole('button', { name: /다음/ }).click();
+  await expect(page.locator('#idea')).toHaveValue('나만의 모바일 프로젝트');
+  await page.reload();
+  await page.evaluate(() => onboard());
+  await expect(page.locator('#idea')).toHaveValue('나만의 모바일 프로젝트');
+  await expect(page.locator('#idea')).toHaveAttribute('maxlength', '1200');
+  await expect(page.getByLabel('만들고 싶은 프로젝트 설명 (선택)')).toBeVisible();
+});
