@@ -313,3 +313,31 @@ test('malformed archived project can be opened safely after reload', async ({ pa
   expect(state.done).toHaveLength(7);
   expect(state.notes).toEqual({});
 });
+
+test('keyboard navigation exposes visible focus and quiz feedback status', async ({ page }) => {
+  await page.keyboard.press('Tab');
+  const focus = await page.evaluate(() => {
+    const el = document.activeElement;
+    return { tag: el?.tagName, outline: getComputedStyle(el).outlineStyle };
+  });
+  expect(focus.tag).toBe('BUTTON');
+  expect(focus.outline).not.toBe('none');
+  await createProject(page, '웹사이트', '접근성 검증');
+  await page.locator('.step').first().click();
+  await expect(page.locator('#feedback')).toHaveAttribute('role', 'status');
+  await expect(page.locator('#quizFeedback')).toHaveAttribute('aria-live', 'polite');
+});
+
+test('touch targets and reduced motion preferences are supported', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const metrics = await page.getByRole('button', { name: /새 프로젝트 시작하기/ }).evaluate(el => {
+    const c = getComputedStyle(el);
+    return { height: el.getBoundingClientRect().height, transition: c.transitionDuration };
+  });
+  expect(metrics.height).toBeGreaterThanOrEqual(44);
+  await createProject(page, '웹사이트', '터치 검증');
+  await page.locator('.step').first().click();
+  const check = await page.locator('.verify').first().evaluate(el => el.getBoundingClientRect().height);
+  expect(check).toBeGreaterThanOrEqual(20);
+});
