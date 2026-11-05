@@ -7,7 +7,7 @@ permissions:
   contents: read
 jobs:
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
@@ -17,8 +17,8 @@ jobs:
       - name: Check inline JavaScript syntax
         run: node scripts/check-inline-syntax.cjs
       - run: npm install
-      - run: npx playwright install --with-deps chromium
-      - name: Run browser regression suite
+      - run: npx playwright install --with-deps chromium webkit
+      - name: Run Chromium and iPhone Safari WebKit regression suite
         run: npm run test:e2e
         env:
           CI: 'true'
