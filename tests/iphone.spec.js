@@ -54,7 +54,7 @@ test('iPhone testing guide opens with actionable checklist and backup link', asy
   await expect(checks).toHaveCount(5);
   await checks.first().check();
   await expect(checks.first()).toBeChecked();
-  await page.getByRole('button', { name: '학습 기록 백업·복원' }).tap();
+  await page.getByRole('button', { name: '학습 기록 백업·복원', exact: true }).tap();
   await expect(page.getByRole('heading', { name: '학습 기록 백업·복원' })).toBeVisible();
   await page.getByRole('button', { name: /아이폰 테스트 안내/ }).tap();
   await expect(page.getByRole('heading', { name: /아이폰 테스트 안내/ })).toBeVisible();
