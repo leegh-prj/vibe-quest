@@ -407,3 +407,26 @@ test('empty project library has a useful first-project prompt', async ({ page })
   await expect(page.getByText('아직 저장된 프로젝트가 없습니다.')).toBeVisible();
   await expect(page.getByText('0개 프로젝트')).toBeVisible();
 });
+
+test('quest completion checklist updates immediately without unlocking early', async ({ page }) => {
+  await createProject(page, '웹사이트', '완료 기준 상태 점검');
+  await page.locator('.step').first().click();
+  await expect(page.locator('#readyQuiz')).toContainText('○');
+  await expect(page.locator('#readyChecks')).toContainText('0/3개');
+  await expect(page.locator('#readyProof')).toContainText('○');
+  await page.getByRole('button', { name: /완료하고 다음/ }).click();
+  await expect(page.locator('#feedback')).toContainText('이해도 확인 문제');
+  const answer = await page.evaluate(() => LESSON_LIBRARY[0].correct);
+  await page.locator('.quiz-option').nth(answer).click();
+  await expect(page.locator('#readyQuiz')).toContainText('✓');
+  await page.locator('.verify').first().check();
+  await expect(page.locator('#readyChecks')).toContainText('1/3개');
+  await page.locator('#result').fill('https://example.com/valid-evidence');
+  await expect(page.locator('#readyProof')).toContainText('✓');
+  for (const box of await page.locator('.verify').all()) await box.check();
+  await expect(page.locator('#readySummary')).toContainText('모든 완료 조건을 충족했습니다');
+  await page.reload();
+  await page.evaluate(() => dashboard());
+  await page.locator('.step').first().click();
+  await expect(page.locator('#readySummary')).toContainText('모든 완료 조건을 충족했습니다');
+});
