@@ -525,3 +525,32 @@ test('mobile learning record details expand without losing navigation', async ({
   await page.getByRole('button', { name: 'QUEST 1 학습 기록 보기' }).click();
   await expect(page.locator('#memo')).toHaveValue('모바일에서 접어 둘 긴 학습 메모');
 });
+
+test('offline troubleshooting guide switches between four useful problem categories', async ({ page }) => {
+  await createProject(page, '웹사이트', '문제 해결 가이드 검증');
+  await page.locator('.step').nth(3).click();
+  await page.locator('#troubleshooting summary').click();
+  await expect(page.locator('#troubleSteps')).toContainText('320px과 375px');
+  for (const [value, expected] of [
+    ['action', '버튼을 눌러도 반응이 없어요'],
+    ['storage', '기존 기록을 먼저 백업합니다'],
+    ['deploy', '최신 커밋의 빌드 완료 여부']
+  ]) {
+    await page.locator('#troubleType').selectOption(value);
+    await expect(page.locator('#troubleSteps')).toContainText(expected);
+  }
+  await expect(page.locator('#troubleSteps')).toContainText('이번 퀘스트:');
+  await expect(page.locator('#troubleSteps')).toContainText('모바일');
+});
+
+test('troubleshooting remains usable without AI endpoint and on narrow screens', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  await page.route('**/api/coach', route => route.abort());
+  await createProject(page, '게임', '오프라인 가이드');
+  await page.locator('.step').first().click();
+  await page.locator('#troubleshooting summary').click();
+  await expect(page.locator('#troubleSteps')).toContainText('모바일에서 화면이 겹치거나 잘려요');
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
+  expect(overflow).toBe(false);
+  await expect(page.getByRole('button', { name: /AI 코치에게 질문/ })).toBeVisible();
+});
