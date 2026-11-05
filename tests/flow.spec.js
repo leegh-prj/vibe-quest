@@ -504,3 +504,24 @@ test('learning record text is escaped instead of interpreted as HTML', async ({ 
   await page.evaluate(() => dashboard());
   await expect(page.locator('.learning-records img')).toHaveCount(0);
 });
+
+test('mobile learning record details expand without losing navigation', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  await createProject(page, '웹사이트', '모바일 기록 확인');
+  await page.evaluate(() => {
+    data.notes[0] = '모바일에서 접어 둘 긴 학습 메모';
+    data.evidence[0] = 'https://example.com/mobile-proof';
+    save();
+    dashboard();
+  });
+  const details = page.locator('.learning-records details').first();
+  await expect(details).not.toHaveAttribute('open');
+  await expect(page.getByText('모바일에서 접어 둘 긴 학습 메모')).not.toBeVisible();
+  await details.locator('summary').click();
+  await expect(details).toHaveAttribute('open');
+  await expect(page.getByText('모바일에서 접어 둘 긴 학습 메모')).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+  expect(overflow).toBe(false);
+  await page.getByRole('button', { name: 'QUEST 1 학습 기록 보기' }).click();
+  await expect(page.locator('#memo')).toHaveValue('모바일에서 접어 둘 긴 학습 메모');
+});
