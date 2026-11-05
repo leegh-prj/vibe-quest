@@ -89,7 +89,7 @@ test('iPhone QA device details and checklist persist independently of learning p
     lessons: localStorage.getItem('vibequest-v1')
   }));
   expect(JSON.parse(stored.qa).checks[0]).toBe(true);
-  expect(JSON.parse(stored.lessons)).not.toHaveProperty('iphoneQa');
+  expect(stored.lessons).toBeNull();
 });
 
 test('iPhone QA report downloads without resetting the saved learning data', async ({ page }) => {
