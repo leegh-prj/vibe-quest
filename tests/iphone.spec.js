@@ -44,3 +44,30 @@ test('iPhone Safari offline help and records are tap-friendly', async ({ page })
   const size = await page.locator('#memo').evaluate(x => parseFloat(getComputedStyle(x).fontSize));
   expect(size).toBeGreaterThanOrEqual(16);
 });
+
+test('iPhone testing guide opens with actionable checklist and backup link', async ({ page }) => {
+  await page.getByRole('button', { name: /아이폰 테스트 안내/ }).tap();
+  await expect(page.getByRole('heading', { name: /아이폰 테스트 안내/ })).toBeVisible();
+  await expect(page.getByText('홈 화면에 추가')).toBeVisible();
+  await expect(page.getByText(/로컬 저장소에 보관됩니다/)).toBeVisible();
+  const checks = page.locator('input[type="checkbox"]');
+  await expect(checks).toHaveCount(5);
+  await checks.first().check();
+  await expect(checks.first()).toBeChecked();
+  await page.getByRole('button', { name: '학습 기록 백업·복원' }).tap();
+  await expect(page.getByRole('heading', { name: '학습 기록 백업·복원' })).toBeVisible();
+  await page.getByRole('button', { name: /아이폰 테스트 안내/ }).tap();
+  await expect(page.getByRole('heading', { name: /아이폰 테스트 안내/ })).toBeVisible();
+  await expect(page.locator('input[type="checkbox"]').first()).not.toBeChecked();
+});
+
+test('iPhone Safari testing guide fits narrow and landscape viewports', async ({ page }) => {
+  for (const viewport of [{width:375,height:667},{width:430,height:932},{width:844,height:390}]) {
+    await page.setViewportSize(viewport);
+    await page.getByRole('button', { name: /아이폰 테스트 안내/ }).first().tap();
+    const result = await page.evaluate(() => ({width:innerWidth,documentWidth:document.documentElement.scrollWidth}));
+    expect(result.documentWidth).toBeLessThanOrEqual(result.width);
+    await expect(page.getByText('홈 화면에 추가')).toBeVisible();
+    await page.getByRole('button', { name: /홈으로/ }).tap();
+  }
+});
