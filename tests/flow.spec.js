@@ -470,3 +470,37 @@ test('resume falls back to first unfinished quest when last visited is completed
   await page.locator('#resumeQuestBtn').click();
   await expect(page.getByText('QUEST 3 / 7')).toBeVisible();
 });
+
+test('learning records summarize completed and draft work without mixing projects', async ({ page }) => {
+  await createProject(page, '웹사이트', '학습기록 웹 프로젝트');
+  await page.evaluate(() => {
+    data.done = [true, false, false, false, false, false, false];
+    data.evidence[0] = 'https://example.com/proof';
+    data.notes[0] = '첫 퀘스트 학습 메모';
+    data.notes[1] = '두 번째 퀘스트 진행 중';
+    save();
+    dashboard();
+  });
+  await expect(page.getByText('1개 퀘스트 완료 · 2개 퀘스트에 기록 있음')).toBeVisible();
+  await expect(page.locator('.learning-records')).toContainText('첫 퀘스트 학습 메모');
+  await expect(page.locator('.learning-records')).toContainText('두 번째 퀘스트 진행 중');
+  await page.getByRole('button', { name: 'QUEST 2 학습 기록 보기' }).click();
+  await expect(page.locator('#memo')).toHaveValue('두 번째 퀘스트 진행 중');
+  await createProject(page, '게임', '별도 게임 프로젝트', true);
+  await expect(page.getByText('0개 퀘스트 완료 · 0개 퀘스트에 기록 있음')).toBeVisible();
+  await expect(page.locator('.learning-records')).not.toContainText('첫 퀘스트 학습 메모');
+});
+
+test('learning record text is escaped instead of interpreted as HTML', async ({ page }) => {
+  await createProject(page, '웹사이트', '학습 메모 표시 확인');
+  await page.evaluate(() => {
+    data.notes[0] = '<img src=x onerror=alert(1)>';
+    save();
+    dashboard();
+  });
+  await expect(page.locator('.learning-records')).toContainText('<img src=x onerror=alert(1)>');
+  await expect(page.locator('.learning-records img')).toHaveCount(0);
+  await page.reload();
+  await page.evaluate(() => dashboard());
+  await expect(page.locator('.learning-records img')).toHaveCount(0);
+});
