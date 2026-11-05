@@ -430,3 +430,43 @@ test('quest completion checklist updates immediately without unlocking early', a
   await page.locator('.step').first().click();
   await expect(page.locator('#readySummary')).toContainText('모든 완료 조건을 충족했습니다');
 });
+
+test('returning learner resumes the last unfinished quest after reload', async ({ page }) => {
+  await createProject(page, '웹사이트', '학습 복귀 프로젝트');
+  await page.locator('.step').nth(3).click();
+  await expect(page.getByText('QUEST 4 / 7')).toBeVisible();
+  await page.locator('#memo').fill('마지막으로 작업하던 기록');
+  await page.reload();
+  await page.evaluate(() => dashboard());
+  await expect(page.locator('.focus-banner')).toContainText('QUEST 4');
+  await page.locator('#resumeQuestBtn').click();
+  await expect(page.getByText('QUEST 4 / 7')).toBeVisible();
+  await expect(page.locator('#memo')).toHaveValue('마지막으로 작업하던 기록');
+});
+
+test('resume restores each project independently after switching', async ({ page }) => {
+  await createProject(page, '웹사이트', '웹 복귀 프로젝트');
+  await page.locator('.step').nth(4).click();
+  await createProject(page, '게임', '게임 복귀 프로젝트', true);
+  await page.locator('.step').nth(1).click();
+  await page.evaluate(() => projectsPage());
+  await page.getByRole('button', { name: '학습 이어가기' }).first().click();
+  await expect(page.locator('.focus-banner')).toContainText('QUEST 5');
+  await page.evaluate(() => projectsPage());
+  await page.getByRole('button', { name: '학습 이어가기' }).nth(1).click();
+  await expect(page.locator('.focus-banner')).toContainText('QUEST 2');
+});
+
+test('resume falls back to first unfinished quest when last visited is completed', async ({ page }) => {
+  await createProject(page, '웹사이트', '완료된 단계 복귀');
+  await page.evaluate(() => {
+    data.done = [true, true, false, false, false, false, false];
+    data.current = 1;
+    save();
+  });
+  await page.reload();
+  await page.evaluate(() => dashboard());
+  await expect(page.locator('.focus-banner')).toContainText('QUEST 3');
+  await page.locator('#resumeQuestBtn').click();
+  await expect(page.getByText('QUEST 3 / 7')).toBeVisible();
+});
