@@ -554,3 +554,18 @@ test('troubleshooting remains usable without AI endpoint and on narrow screens',
   expect(overflow).toBe(false);
   await expect(page.getByRole('button', { name: /AI 코치에게 질문/ })).toBeVisible();
 });
+
+test('iPhone Safari page preparation includes safe areas and non-zooming form fields', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator('meta[name="viewport"]')).toHaveAttribute('content', /viewport-fit=cover/);
+  await expect(page.locator('meta[name="apple-mobile-web-app-capable"]')).toHaveAttribute('content', 'yes');
+  await createProject(page, '웹사이트', '아이폰 화면 검증');
+  await page.locator('.step').first().click();
+  const metrics = await page.evaluate(() => ({
+    width: window.innerWidth,
+    documentWidth: document.documentElement.scrollWidth,
+    formFont: parseFloat(getComputedStyle(document.querySelector('#memo')).fontSize)
+  }));
+  expect(metrics.documentWidth).toBeLessThanOrEqual(metrics.width);
+  expect(metrics.formFont).toBeGreaterThanOrEqual(16);
+});
