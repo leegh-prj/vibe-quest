@@ -58,7 +58,7 @@ test('iPhone testing guide opens with actionable checklist and backup link', asy
   await expect(page.getByRole('heading', { name: '학습 기록 백업·복원' })).toBeVisible();
   await page.getByRole('button', { name: /아이폰 테스트 안내/ }).tap();
   await expect(page.getByRole('heading', { name: /아이폰 테스트 안내/ })).toBeVisible();
-  await expect(page.locator('input[type="checkbox"]').first()).not.toBeChecked();
+  await expect(page.locator('input[type="checkbox"]').first()).toBeChecked();
 });
 
 test('iPhone Safari testing guide fits narrow and landscape viewports', async ({ page }) => {
@@ -70,4 +70,39 @@ test('iPhone Safari testing guide fits narrow and landscape viewports', async ({
     await expect(page.getByText('홈 화면에 추가')).toBeVisible();
     await page.getByRole('button', { name: /홈으로/ }).tap();
   }
+});
+
+test('iPhone QA device details and checklist persist independently of learning progress', async ({ page }) => {
+  await page.getByRole('button', { name: /아이폰 테스트 안내/ }).first().tap();
+  await page.locator('#iphoneModel').fill('iPhone 15 Pro');
+  await page.locator('#iphoneIos').fill('iOS 18');
+  await page.locator('#iphoneNote').fill('가로 모드에서 확인 필요');
+  await page.locator('.iphone-qa-check').first().check();
+  await page.reload();
+  await page.getByRole('button', { name: /아이폰 테스트 안내/ }).first().tap();
+  await expect(page.locator('#iphoneModel')).toHaveValue('iPhone 15 Pro');
+  await expect(page.locator('#iphoneIos')).toHaveValue('iOS 18');
+  await expect(page.locator('#iphoneNote')).toHaveValue('가로 모드에서 확인 필요');
+  await expect(page.locator('.iphone-qa-check').first()).toBeChecked();
+  const stored = await page.evaluate(() => ({
+    qa: localStorage.getItem('vibequest-iphone-qa-v1'),
+    lessons: localStorage.getItem('vibequest-v1')
+  }));
+  expect(JSON.parse(stored.qa).checks[0]).toBe(true);
+  expect(JSON.parse(stored.lessons)).not.toHaveProperty('iphoneQa');
+});
+
+test('iPhone QA report downloads without resetting the saved learning data', async ({ page }) => {
+  await page.getByRole('button', { name: /아이폰 테스트 안내/ }).first().tap();
+  await page.locator('#iphoneModel').fill('iPhone SE');
+  await page.locator('.iphone-qa-check').nth(2).check();
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: '테스트 결과 JSON 다운로드' }).tap()
+  ]);
+  expect(download.suggestedFilename()).toBe('vibe-quest-iphone-qa.json');
+  page.on('dialog', dialog => dialog.accept());
+  await page.getByRole('button', { name: '점검 기록 초기화' }).tap();
+  await expect(page.locator('.iphone-qa-check').nth(2)).not.toBeChecked();
+  await expect(page.locator('#iphoneModel')).toHaveValue('');
 });
