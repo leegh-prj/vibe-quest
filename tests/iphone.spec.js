@@ -131,3 +131,35 @@ test('iPhone QA clipboard fallback shows selectable share text', async ({ page }
   await expect(page.locator('#iphoneQaShareText')).toBeVisible();
   await expect(page.locator('#iphoneQaShareText')).toHaveValue(/VIBE QUEST 아이폰 수동 QA 결과/);
 });
+
+test('iPhone QA issues can be added, updated and restored after reload', async ({ page }) => {
+  await page.getByRole('button', { name: /아이폰 테스트 안내/ }).first().tap();
+  await page.locator('#issueTitle').fill('아이폰 가로 모드에서 버튼 잘림');
+  await page.locator('#issueDetail').fill('가로 회전 후 하단 버튼 확인');
+  await page.getByRole('button', { name: 'QA 이슈 등록' }).tap();
+  await expect(page.locator('#issueCount')).toContainText('등록 1개 · 미완료 1개');
+  const select = page.getByRole('combobox', { name: '아이폰 가로 모드에서 버튼 잘림 처리 상태' });
+  await select.selectOption('working');
+  await page.reload();
+  await page.getByRole('button', { name: /아이폰 테스트 안내/ }).first().tap();
+  await expect(page.locator('#issueList')).toContainText('가로 회전 후 하단 버튼 확인');
+  await expect(page.getByRole('combobox', { name: '아이폰 가로 모드에서 버튼 잘림 처리 상태' })).toHaveValue('working');
+  await page.getByRole('combobox', { name: '아이폰 가로 모드에서 버튼 잘림 처리 상태' }).selectOption('verified');
+  await expect(page.locator('#issueCount')).toContainText('등록 1개 · 미완료 0개');
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: '이슈 목록 JSON 다운로드' }).tap()]);
+  expect(download.suggestedFilename()).toBe('vibe-quest-iphone-issues.json');
+});
+
+test('iPhone QA issue input is escaped and isolated from learning data', async ({ page }) => {
+  await page.getByRole('button', { name: /아이폰 테스트 안내/ }).first().tap();
+  await page.locator('#issueTitle').fill('<img src=x onerror=alert(1)>');
+  await page.getByRole('button', { name: 'QA 이슈 등록' }).tap();
+  await expect(page.locator('#issueList img')).toHaveCount(0);
+  await expect(page.locator('#issueList')).toContainText('<img src=x onerror=alert(1)>');
+  const saved = await page.evaluate(() => ({issue:localStorage.getItem('vibequest-iphone-issues-v1'),learning:localStorage.getItem('vibequest-v1')}));
+  expect(JSON.parse(saved.issue)).toHaveLength(1);
+  expect(saved.learning).toBeNull();
+  page.on('dialog', d => d.accept());
+  await page.getByRole('button', { name: '이슈 삭제' }).tap();
+  await expect(page.locator('#issueCount')).toContainText('등록 0개');
+});
