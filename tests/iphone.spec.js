@@ -106,3 +106,28 @@ test('iPhone QA report downloads without resetting the saved learning data', asy
   await expect(page.locator('.iphone-qa-check').nth(2)).not.toBeChecked();
   await expect(page.locator('#iphoneModel')).toHaveValue('');
 });
+
+test('iPhone QA produces concise share text without treating unchecked items as failures', async ({ page }) => {
+  await page.getByRole('button', { name: /아이폰 테스트 안내/ }).first().tap();
+  await page.locator('#iphoneModel').fill('iPhone 16');
+  await page.locator('#iphoneNote').fill('공유 테스트용 메모');
+  await page.locator('.iphone-qa-check').nth(1).check();
+  const summary = await page.evaluate(() => iphoneQaSummary());
+  expect(summary).toContain('점검: 1/5개 확인');
+  expect(summary).toContain('[확인] 퀘스트 버튼');
+  expect(summary).toContain('[미확인] 온보딩');
+  expect(summary).not.toContain('[실패]');
+  expect(summary).toContain('공유 테스트용 메모');
+});
+
+test('iPhone QA clipboard fallback shows selectable share text', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(Navigator.prototype, 'clipboard', { configurable: true, value: undefined });
+  });
+  await page.reload();
+  await page.getByRole('button', { name: /아이폰 테스트 안내/ }).first().tap();
+  await page.getByRole('button', { name: '공유용 요약 복사' }).tap();
+  await expect(page.locator('#iphoneQaStatus')).toContainText('직접 선택해 복사');
+  await expect(page.locator('#iphoneQaShareText')).toBeVisible();
+  await expect(page.locator('#iphoneQaShareText')).toHaveValue(/VIBE QUEST 아이폰 수동 QA 결과/);
+});
