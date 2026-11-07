@@ -163,3 +163,52 @@ test('iPhone QA issue input is escaped and isolated from learning data', async (
   await page.getByRole('button', { name: '이슈 삭제' }).tap();
   await expect(page.locator('#issueCount')).toContainText('등록 0개');
 });
+
+test('iPhone QA issue import previews duplicates and preserves local status', async ({ page }) => {
+  await page.getByRole('button', { name: /아이폰 테스트 안내/ }).first().tap();
+  await page.locator('#issueTitle').fill('아이폰 버튼 겹침 문제');
+  await page.locator('#issueDetail').fill('가로 방향 확인');
+  await page.getByRole('button', { name: 'QA 이슈 등록' }).tap();
+  await page.getByRole('combobox', { name: '아이폰 버튼 겹침 문제 처리 상태' }).selectOption('working');
+  const report = {format:'vibequest-iphone-issues',version:1,issues:[
+    {id:'other-1',title:'아이폰 버튼 겹침 문제',detail:'가로 방향 확인',state:'open'},
+    {id:'other-2',title:'아이폰 버튼 겹침 문제',detail:'세로 방향 문제',state:'open'},
+    {id:'other-3',title:'로그인 화면 오류 발생',detail:'버튼을 누른 뒤 응답 없음',state:'verified'}
+  ]};
+  await page.locator('#issueImportFile').setInputFiles({name:'external.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(report))});
+  await expect(page.locator('#issueImportPreview')).toContainText('신규 2개');
+  await expect(page.locator('#issueImportPreview')).toContainText('중복 제외 1개');
+  await expect(page.locator('#issueImportPreview')).toContainText('제목이 같은 후보 1개');
+  await expect(page.locator('#issueCount')).toContainText('등록 1개');
+  await page.getByRole('button', { name: '미리보기 확인 후 가져오기' }).tap();
+  await expect(page.locator('#issueCount')).toContainText('등록 3개 · 미완료 2개');
+  await expect(page.getByRole('combobox', { name: '아이폰 버튼 겹침 문제 처리 상태' }).first()).toHaveValue('open');
+  const items = await page.evaluate(() => loadIssues());
+  expect(items.find(x => x.detail==='가로 방향 확인').state).toBe('working');
+  expect(items.filter(x=>x.title==='아이폰 버튼 겹침 문제')).toHaveLength(2);
+  await page.locator('#issueStatusFilter').selectOption('verified');
+  await expect(page.locator('#issueList .iphone-issue')).toHaveCount(1);
+  await expect(page.locator('#issueCount')).toContainText('등록 3개');
+});
+
+test('iPhone QA rejects invalid issue file without overwriting existing issues', async ({ page }) => {
+  await page.getByRole('button', { name: /아이폰 테스트 안내/ }).first().tap();
+  await page.locator('#issueTitle').fill('테스트 화면 저장 오류');
+  await page.getByRole('button', { name: 'QA 이슈 등록' }).tap();
+  const before=await page.evaluate(() => localStorage.getItem('vibequest-iphone-issues-v1'));
+  await page.locator('#issueImportFile').setInputFiles({name:'invalid.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({format:'vibequest-iphone-issues',version:1,issues:[{id:'x',title:'oops',detail:'',state:'invalid'}]}))});
+  await expect(page.locator('#issueMessage')).toContainText('올바른 QA 이슈 JSON');
+  await page.getByRole('button', { name: '미리보기 확인 후 가져오기' }).tap();
+  expect(await page.evaluate(() => localStorage.getItem('vibequest-iphone-issues-v1'))).toBe(before);
+  await expect(page.locator('#issueCount')).toContainText('등록 1개');
+});
+
+test('iPhone QA import cancellation leaves local issues untouched', async ({ page }) => {
+  await page.getByRole('button', { name: /아이폰 테스트 안내/ }).first().tap();
+  const report={format:'vibequest-iphone-issues',version:1,issues:[{id:'import-1',title:'화면 버튼이 눌리지 않음',detail:'아이폰에서 재현',state:'open'}]};
+  await page.locator('#issueImportFile').setInputFiles({name:'valid.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(report))});
+  await expect(page.locator('#issueImportPreview')).toBeVisible();
+  await page.getByRole('button', { name: '취소' }).tap();
+  await expect(page.locator('#issueImportPreview')).toBeHidden();
+  await expect(page.locator('#issueCount')).toContainText('등록 0개');
+});
