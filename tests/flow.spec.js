@@ -616,3 +616,55 @@ test('MVP goal evidence is escaped rather than executed as HTML', async ({ page 
   await expect(page.locator('#goalEvidence0')).toHaveValue('<img src=x onerror=alert(1)>');
   await expect(page.locator('.goal-review img')).toHaveCount(0);
 });
+
+test('retry helper builds a scoped correction prompt and saves verified outcome', async ({ page }) => {
+  await createProject(page, '웹사이트', '재시도 도움 포트폴리오');
+  await page.locator('.step').first().click();
+  await page.getByRole('button', { name: '수정 요청문 생성' }).click();
+  await expect(page.locator('#retryMessage')).toContainText('각각 5자');
+  await page.locator('#retryProblem').fill('아이폰에서 하단 버튼이 눌리지 않습니다');
+  await page.locator('#retryExpected').fill('하단 버튼이 정상적으로 눌려야 합니다');
+  await page.getByRole('button', { name: '수정 요청문 생성' }).click();
+  await expect(page.locator('#retryPrompt')).toHaveValue(/사용자 데이터는 유지하면서/);
+  await expect(page.locator('#retryPrompt')).toHaveValue(/아이폰에서 하단 버튼/);
+  await page.locator('#retryStatus').selectOption('resolved');
+  await page.getByRole('button', { name: '재시도 기록 저장' }).click();
+  await expect(page.locator('#retryMessage')).toContainText('8자 이상');
+  await page.locator('#retryAfter').fill('Safari 화면에서 버튼 동작을 직접 다시 확인했습니다');
+  await page.getByRole('button', { name: '재시도 기록 저장' }).click();
+  await expect(page.locator('.retry-entry')).toContainText('직접 확인 후 해결');
+  await page.reload();
+  await page.evaluate(() => quest(0));
+  await expect(page.locator('.retry-entry')).toContainText('Safari 화면에서 버튼 동작');
+});
+
+test('retry history remains project-specific and survives backup restore', async ({ page }) => {
+  await createProject(page, '웹사이트', '첫번째 재시도');
+  await page.locator('.step').first().click();
+  await page.locator('#retryProblem').fill('첫 프로젝트 버튼이 동작하지 않아요');
+  await page.locator('#retryExpected').fill('버튼을 누르면 화면이 열려야 해요');
+  await page.getByRole('button', { name: '재시도 기록 저장' }).click();
+  await createProject(page, '게임', '두번째 재시도 프로젝트', true);
+  await page.locator('.step').first().click();
+  await expect(page.locator('.retry-entry')).toHaveCount(0);
+  await page.evaluate(() => projectsPage());
+  await page.getByRole('button', { name: '학습 이어가기' }).first().click();
+  await page.locator('.step').first().click();
+  await expect(page.locator('.retry-entry')).toContainText('첫 프로젝트 버튼');
+  const backup=await page.evaluate(() => { archiveCurrent(); return JSON.stringify({format:'vibequest-backup',version:1,data}); });
+  await page.evaluate(() => showBackup());
+  page.on('dialog',d=>d.accept());
+  await page.locator('#backupFile').setInputFiles({name:'restore.json',mimeType:'application/json',buffer:Buffer.from(backup)});
+  await page.locator('.step').first().click();
+  await expect(page.locator('.retry-entry')).toContainText('첫 프로젝트 버튼');
+});
+
+test('retry inputs remain inert when displaying HTML-looking text', async ({ page }) => {
+  await createProject(page, '웹사이트', '안전한 재시도 기록');
+  await page.locator('.step').first().click();
+  await page.locator('#retryProblem').fill('<img src=x onerror=alert(1)>');
+  await page.locator('#retryExpected').fill('문자열을 안전하게 보여줘야 합니다');
+  await page.getByRole('button', { name: '재시도 기록 저장' }).click();
+  await expect(page.locator('.retry-entry')).toContainText('<img src=x onerror=alert(1)>');
+  await expect(page.locator('.retry-panel img')).toHaveCount(0);
+});
