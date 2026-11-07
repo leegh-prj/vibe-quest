@@ -668,3 +668,43 @@ test('retry inputs remain inert when displaying HTML-looking text', async ({ pag
   await expect(page.locator('.retry-entry')).toContainText('<img src=x onerror=alert(1)>');
   await expect(page.locator('.retry-panel img')).toHaveCount(0);
 });
+
+test('next actions prioritize unresolved retry over unfinished quest and route to it', async ({ page }) => {
+  await createProject(page, '웹사이트', '복귀 추천 프로젝트');
+  await page.locator('.step').nth(2).click();
+  await page.locator('#retryProblem').fill('모바일에서 저장 버튼이 누락됩니다');
+  await page.locator('#retryExpected').fill('저장 버튼을 누르면 내용이 유지되어야 합니다');
+  await page.getByRole('button', { name: '재시도 기록 저장' }).click();
+  await page.evaluate(() => dashboard());
+  await expect(page.locator('.next-action').first()).toContainText('해결하지 못한 문제 다시 확인');
+  await expect(page.locator('.next-action').first()).toContainText('QUEST 3');
+  await page.locator('.next-action').first().getByRole('button', { name: /바로 진행/ }).click();
+  await expect(page.getByRole('heading', { name: /QUEST/ })).toHaveCount(0);
+  await expect(page.locator('.tag').first()).toContainText('QUEST 3 / 7');
+});
+
+test('next actions direct to built goal needing manual verification', async ({ page }) => {
+  await createProject(page, '웹사이트', '검증 추천 프로젝트');
+  await page.locator('#goalStatus1').selectOption('built');
+  await expect(page.locator('#goalReviewSummary')).toContainText('구현 1/3개');
+  await page.evaluate(() => dashboard());
+  await expect(page.locator('.next-action').first()).toContainText('구현한 핵심 기능 직접 테스트');
+  await page.locator('.next-action').first().getByRole('button', { name: /목표 확인/ }).click();
+  await expect(page.locator('#goalStatus1')).toBeFocused();
+});
+
+test('project library indicates actual sparse last unfinished goal instead of completed count', async ({ page }) => {
+  await createProject(page, '게임', '완료 단계가 불규칙한 게임');
+  await page.evaluate(() => {
+    data.done=[true,false,true,false,false,false,false];
+    data.current=3;
+    save();
+    projectsPage();
+  });
+  await expect(page.locator('.project-item')).toContainText('다음 목표:');
+  const goal=await page.evaluate(() => TOPICS.game[3]);
+  await expect(page.locator('.project-item')).toContainText(goal);
+  await page.reload();
+  await page.evaluate(() => dashboard());
+  await expect(page.locator('.next-action')).toContainText('QUEST 4');
+});
