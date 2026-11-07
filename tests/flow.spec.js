@@ -706,5 +706,5 @@ test('project library indicates actual sparse last unfinished goal instead of co
   await expect(page.locator('.project-item')).toContainText(goal);
   await page.reload();
   await page.evaluate(() => dashboard());
-  await expect(page.locator('.next-action')).toContainText('QUEST 4');
+  await expect(page.locator('.next-action').first()).toContainText('QUEST 4');
 });
