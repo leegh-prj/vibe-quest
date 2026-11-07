@@ -569,3 +569,50 @@ test('iPhone Safari page preparation includes safe areas and non-zooming form fi
   expect(metrics.documentWidth).toBeLessThanOrEqual(metrics.width);
   expect(metrics.formFont).toBeGreaterThanOrEqual(16);
 });
+
+test('MVP goals track built and manually tested features independently of quests', async ({ page }) => {
+  await createProject(page, '웹사이트', '목표 검증 포트폴리오');
+  await expect(page.locator('#goalReviewSummary')).toContainText('구현 0/3개 · 직접 테스트 0/3개');
+  await page.locator('#goalStatus0').selectOption('built');
+  await page.locator('#goalStatus1').selectOption('tested');
+  await expect(page.locator('#goalStatus1')).toHaveValue('built');
+  await expect(page.locator('#goalSaveMessage')).toContainText('8자 이상');
+  await page.locator('#goalEvidence1').fill('모바일에서 목록과 링크 클릭을 직접 확인했습니다.');
+  await page.locator('#goalStatus1').selectOption('tested');
+  await expect(page.locator('#goalReviewSummary')).toContainText('구현 2/3개 · 직접 테스트 1/3개');
+  await expect(page.locator('.pill').filter({hasText:'완료 0 / 7'})).toBeVisible();
+  await page.reload();
+  await page.evaluate(() => dashboard());
+  await expect(page.locator('#goalStatus1')).toHaveValue('tested');
+  await expect(page.locator('#goalEvidence1')).toHaveValue('모바일에서 목록과 링크 클릭을 직접 확인했습니다.');
+});
+
+test('MVP review is preserved independently across project switching and backup restoration', async ({ page }) => {
+  await createProject(page, '웹사이트', '첫 번째 목표 검증');
+  await page.locator('#goalEvidence0').fill('테스트를 수행한 화면과 결과 기록입니다.');
+  await page.locator('#goalStatus0').selectOption('tested');
+  await createProject(page, '게임', '두 번째 게임 목표', true);
+  await expect(page.locator('#goalReviewSummary')).toContainText('구현 0/3개 · 직접 테스트 0/3개');
+  await page.evaluate(() => projectsPage());
+  await page.getByRole('button', { name: '학습 이어가기' }).first().click();
+  await expect(page.locator('#goalReviewSummary')).toContainText('구현 1/3개 · 직접 테스트 1/3개');
+  const backup = await page.evaluate(() => {
+    archiveCurrent();
+    return JSON.stringify({format:'vibequest-backup',version:1,data});
+  });
+  await page.evaluate(() => start());
+  await page.evaluate(() => showBackup());
+  page.on('dialog', d=>d.accept());
+  await page.locator('#backupFile').setInputFiles({name:'learning.json',mimeType:'application/json',buffer:Buffer.from(backup)});
+  await expect(page.locator('#goalStatus0')).toHaveValue('tested');
+  await expect(page.locator('#goalEvidence0')).toHaveValue('테스트를 수행한 화면과 결과 기록입니다.');
+});
+
+test('MVP goal evidence is escaped rather than executed as HTML', async ({ page }) => {
+  await createProject(page, '웹사이트', '결과 안전성 검증');
+  await page.locator('#goalEvidence0').fill('<img src=x onerror=alert(1)>');
+  await page.reload();
+  await page.evaluate(() => dashboard());
+  await expect(page.locator('#goalEvidence0')).toHaveValue('<img src=x onerror=alert(1)>');
+  await expect(page.locator('.goal-review img')).toHaveCount(0);
+});
