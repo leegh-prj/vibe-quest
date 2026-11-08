@@ -708,3 +708,49 @@ test('project library indicates actual sparse last unfinished goal instead of co
   await page.evaluate(() => dashboard());
   await expect(page.locator('.next-action').first()).toContainText('QUEST 4');
 });
+
+test('onboarding offers two type-specific starter templates without locking edits', async ({ page }) => {
+  await page.getByRole('button', { name: /새 프로젝트 시작하기/ }).click();
+  await page.locator('.choice').filter({ hasText: '게임' }).first().click();
+  await page.getByRole('button', { name: /다음/ }).click();
+  await expect(page.locator('.starter-option')).toHaveCount(2);
+  await expect(page.getByText('클릭 점수 게임')).toBeVisible();
+  await page.locator('.starter-option').first().click();
+  await expect(page.locator('#idea')).toHaveValue(/점수가 올라가고/);
+  await page.locator('#idea').fill('내가 직접 수정한 게임 아이디어');
+  await page.getByRole('button', { name: /다음/ }).click();
+  await page.getByRole('button', { name: /다음/ }).click();
+  await page.getByRole('button', { name: /맞춤 로드맵 만들기/ }).click();
+  await expect(page.getByText('내가 직접 수정한 게임 아이디어').first()).toBeVisible();
+  await expect(page.locator('.first-five')).toBeVisible();
+  await page.locator('.first-five').getByRole('button', { name: /첫 실습 시작/ }).click();
+  await expect(page.locator('.tag').first()).toContainText('QUEST 1 / 7');
+});
+
+test('first five minute guide shows selected starter task and disappears after evidence', async ({ page }) => {
+  await page.getByRole('button', { name: /새 프로젝트 시작하기/ }).click();
+  await page.getByRole('button', { name: /다음/ }).click();
+  await page.locator('.starter-option').first().click();
+  await page.getByRole('button', { name: /다음/ }).click();
+  await page.getByRole('button', { name: /다음/ }).click();
+  await page.getByRole('button', { name: /맞춤 로드맵 만들기/ }).click();
+  await expect(page.locator('.first-five')).toContainText('작품 3개의 제목');
+  await page.evaluate(() => { data.notes[0]='첫 작업에서 확인한 내용'; save(); dashboard(); });
+  await expect(page.locator('.first-five')).toHaveCount(0);
+  await page.reload();
+  await page.evaluate(() => dashboard());
+  await expect(page.locator('.first-five')).toHaveCount(0);
+});
+
+test('all five types have usable starter examples and long text does not overflow mobile', async ({ page }) => {
+  await page.setViewportSize({width:320,height:700});
+  for(const type of ['web','app','game','auto','general']){
+    await page.evaluate(t => {data.step=1;data.type=t;onboard();},type);
+    await expect(page.locator('.starter-option')).toHaveCount(2);
+    await page.locator('.starter-option').nth(1).click();
+    const idea=await page.locator('#idea').inputValue();
+    expect(idea.length).toBeGreaterThan(10);
+    const overflow=await page.evaluate(() => document.documentElement.scrollWidth>innerWidth);
+    expect(overflow).toBe(false);
+  }
+});
