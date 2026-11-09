@@ -801,3 +801,38 @@ test('each starter offers scoped guidance at mobile width without horizontal ove
     }
   }
 });
+
+test('starter practice states specific acceptance criteria without completing quest automatically', async ({ page }) => {
+  await createProject(page,'게임','클릭 점수 게임');
+  await page.evaluate(() => { data.description=STARTER_TEMPLATES.game[0].idea;save();quest(4) });
+  await expect(page.locator('.starter-success')).toContainText('점수가 1씩 증가');
+  await expect(page.locator('.starter-success')).toContainText('정상 조작과 예외 조작');
+  await expect(page.locator('#completionGuide')).toContainText('이해도 확인');
+  expect(await page.evaluate(() => data.done[4])).not.toBe(true);
+});
+
+test('retry comparison shows latest transition but does not claim automated resolution', async ({ page }) => {
+  await createProject(page,'웹사이트','재시도 변경 기록');
+  await page.locator('.step').first().click();
+  await page.locator('#retryProblem').fill('모바일 버튼이 클릭되지 않습니다');
+  await page.locator('#retryExpected').fill('버튼 클릭 시 다음 화면으로 이동');
+  await page.getByRole('button',{name:'재시도 기록 저장'}).click();
+  await expect(page.locator('.retry-comparison')).toHaveCount(0);
+  await page.locator('#retryProblem').fill('모바일 버튼이 클릭되지 않습니다');
+  await page.locator('#retryExpected').fill('버튼 클릭 시 다음 화면으로 이동');
+  await page.locator('#retryAfter').fill('아이폰 화면에서 버튼 전환을 직접 두 번 확인');
+  await page.locator('#retryStatus').selectOption('resolved');
+  await page.getByRole('button',{name:'재시도 기록 저장'}).click();
+  await expect(page.locator('.retry-comparison')).toContainText('재시도·검증 필요 → 직접 확인 후 해결');
+  await expect(page.locator('.retry-comparison')).toContainText('자동 판정하지 않습니다');
+  await page.reload();await page.evaluate(()=>quest(0));
+  await expect(page.locator('.retry-comparison')).toContainText('버튼 전환을 직접 두 번 확인');
+});
+
+test('success criteria and retry text remain safe at 320px mobile width', async ({ page }) => {
+  await page.setViewportSize({width:320,height:700});
+  await createProject(page,'웹사이트','모바일 점검 프로젝트');
+  await page.evaluate(() => {data.description=STARTER_TEMPLATES.web[0].idea;save();quest(1)});
+  await expect(page.locator('.starter-success')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
