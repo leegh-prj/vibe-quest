@@ -754,3 +754,50 @@ test('all five types have usable starter examples and long text does not overflo
     expect(overflow).toBe(false);
   }
 });
+
+test('example-specific practice follows the selected game starter across key quests', async ({ page }) => {
+  await page.getByRole('button', { name: /새 프로젝트 시작하기/ }).click();
+  await page.locator('.choice').filter({ hasText:'게임' }).first().click();
+  await page.getByRole('button', { name: /다음/ }).click();
+  await page.locator('.starter-option').first().click();
+  await page.getByRole('button', { name: /다음/ }).click();
+  await page.getByRole('button', { name: /다음/ }).click();
+  await page.getByRole('button', { name: /맞춤 로드맵 만들기/ }).click();
+  await page.locator('.step').first().click();
+  await expect(page.locator('.starter-practice')).toContainText('점수 0점');
+  await page.locator('.starter-practice summary').click();
+  await expect(page.locator('.starter-practice')).toContainText('연속해서 눌러도');
+  await page.evaluate(() => quest(4));
+  await expect(page.locator('.starter-practice')).toContainText('점수가 1씩 증가');
+  await page.evaluate(() => quest(5));
+  await expect(page.locator('.starter-practice')).toContainText('이전 기능도 확인');
+  await page.reload();
+  await page.evaluate(() => quest(1));
+  await expect(page.locator('.starter-practice')).toContainText('클릭 점수 게임');
+});
+
+test('custom project descriptions do not inject unrelated starter practice', async ({ page }) => {
+  await createProject(page,'웹사이트','내가 직접 기획한 새로운 웹사이트');
+  await page.locator('.step').first().click();
+  await expect(page.locator('.starter-practice')).toHaveCount(0);
+  await expect(page.locator('.lesson-detail')).toBeVisible();
+});
+
+test('each starter offers scoped guidance at mobile width without horizontal overflow', async ({ page }) => {
+  await page.setViewportSize({width:320,height:700});
+  for(const kind of ['web','app','game','auto','general']){
+    for(let index=0;index<2;index++){
+      await page.evaluate(({kind,index})=>{
+        data.type=kind;
+        data.description=STARTER_TEMPLATES[kind][index].idea;
+        data.done=[];
+        save();
+        quest(1);
+      },{kind,index});
+      await expect(page.locator('.starter-practice')).toBeVisible();
+      await expect(page.locator('.starter-practice li')).toHaveCount(3);
+      const overflow=await page.evaluate(() => document.documentElement.scrollWidth>innerWidth);
+      expect(overflow).toBe(false);
+    }
+  }
+});
