@@ -836,3 +836,59 @@ test('success criteria and retry text remain safe at 320px mobile width', async 
   await expect(page.locator('.starter-success')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
+
+test('outcome report summarizes manual progress and focuses incomplete tasks', async ({ page }) => {
+  await createProject(page, '웹사이트', '성과 리포트 테스트');
+  await expect(page.locator('#outcomeReportTitle')).toBeVisible();
+  await expect(page.locator('.outcome-stats')).toContainText('0/7');
+  await page.locator('#goalEvidence0').fill('모바일에서 첫 기능 동작을 직접 확인했습니다');
+  await page.locator('#goalStatus0').selectOption('tested');
+  await page.locator('#goalStatus1').selectOption('built');
+  await page.evaluate(() => {data.done[0]=true;save();dashboard()});
+  await expect(page.locator('.outcome-stats')).toContainText('1/7');
+  await expect(page.locator('.outcome-stats')).toContainText('1/3');
+  const summary=await page.evaluate(() => projectOutcomeReport());
+  expect(summary.summary.completedQuests).toBe(1);
+  expect(summary.summary.testedFeatures).toBe(1);
+  expect(summary.nextWork.pendingFeatures).toHaveLength(2);
+  await page.locator('.outcome-row').filter({hasText:'기능'}).first().getByRole('button',{name:'기능 확인'}).click();
+  await expect(page.locator('#goalStatus1')).toBeFocused();
+});
+
+test('outcome report counts latest unresolved and resolved retry states once per quest', async ({ page }) => {
+  await createProject(page,'게임','성과 오류 분류');
+  await page.evaluate(() => {
+    data.retryLogs={
+      0:[{problem:'시작 화면 오류',expected:'화면 보임',before:'',after:'',status:'retry'},
+         {problem:'시작 화면 오류',expected:'화면 보임',before:'',after:'정상 작동 직접 확인',status:'resolved'}],
+      3:[{problem:'게임 입력 처리 오류',expected:'작동',before:'',after:'',status:'retry'}]
+    };
+    save();dashboard();
+  });
+  await expect(page.locator('.outcome-stats')).toContainText('1');
+  const report=await page.evaluate(() => projectOutcomeReport());
+  expect(report.summary.retryRecords).toBe(3);
+  expect(report.summary.resolvedTopics).toBe(1);
+  expect(report.summary.unresolvedTopics).toBe(1);
+  await expect(page.locator('.outcome-row').filter({hasText:'게임 입력 처리 오류'})).toHaveCount(1);
+  await page.locator('.outcome-row').filter({hasText:'게임 입력 처리 오류'}).getByRole('button',{name:'재시도 보기'}).click();
+  await expect(page.locator('.tag').first()).toContainText('QUEST 4 / 7');
+});
+
+test('project outcome report can be downloaded without mutating learning data', async ({ page }) => {
+  await createProject(page,'웹사이트','보존되는 성과 리포트');
+  const before=await page.evaluate(() => localStorage.getItem('vibequest-v1'));
+  const [download]=await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button',{name:'성과 요약 TXT 저장'}).click()
+  ]);
+  expect(download.suggestedFilename()).toBe('vibe-quest-project-report.txt');
+  await expect(page.locator('#outcomeExportStatus')).toContainText('성과 요약 파일');
+  const text=await page.evaluate(() => outcomeReportText(projectOutcomeReport()));
+  expect(text).toContain('프로젝트: 보존되는 성과 리포트');
+  expect(text).toContain('자동 검증 결과가 아닙니다');
+  expect(await page.evaluate(() => localStorage.getItem('vibequest-v1'))).toBe(before);
+  await page.setViewportSize({width:320,height:700});
+  await expect(page.locator('.outcome-report')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
