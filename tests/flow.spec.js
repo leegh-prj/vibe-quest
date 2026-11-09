@@ -780,7 +780,7 @@ test('custom project descriptions do not inject unrelated starter practice', asy
   await createProject(page,'웹사이트','내가 직접 기획한 새로운 웹사이트');
   await page.locator('.step').first().click();
   await expect(page.locator('.starter-practice')).toHaveCount(0);
-  await expect(page.locator('.lesson-detail')).toBeVisible();
+  await expect(page.locator('.lesson-detail').first()).toBeVisible();
 });
 
 test('each starter offers scoped guidance at mobile width without horizontal overflow', async ({ page }) => {
