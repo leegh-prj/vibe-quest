@@ -795,7 +795,7 @@ test('each starter offers scoped guidance at mobile width without horizontal ove
         quest(1);
       },{kind,index});
       await expect(page.locator('.starter-practice')).toBeVisible();
-      await expect(page.locator('.starter-practice li')).toHaveCount(3);
+      await expect(page.locator('.starter-practice > ol > li')).toHaveCount(3);
       const overflow=await page.evaluate(() => document.documentElement.scrollWidth>innerWidth);
       expect(overflow).toBe(false);
     }
