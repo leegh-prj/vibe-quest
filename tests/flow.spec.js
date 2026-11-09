@@ -892,3 +892,42 @@ test('project outcome report can be downloaded without mutating learning data', 
   await expect(page.locator('.outcome-report')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
+
+test('outcome report share uses selectable fallback when clipboard is unavailable', async ({ page }) => {
+  await createProject(page,'웹사이트','공유 리포트 테스트');
+  await page.evaluate(() => {
+    Object.defineProperty(navigator,'clipboard',{configurable:true,value:undefined});
+  });
+  const previous=await page.evaluate(()=>localStorage.getItem('vibequest-v1'));
+  await page.getByRole('button',{name:'공유용 요약 복사'}).click();
+  await expect(page.locator('#outcomeExportStatus')).toContainText('직접 선택해 복사');
+  await expect(page.locator('#outcomeShareFallback')).toBeVisible();
+  await expect(page.locator('#outcomeShareFallback')).toHaveValue(/공유 리포트 테스트/);
+  expect(await page.evaluate(()=>localStorage.getItem('vibequest-v1'))).toBe(previous);
+});
+
+test('outcome report print isolates report and hides navigation and action buttons', async ({ page }) => {
+  await createProject(page,'게임','인쇄용 리포트 테스트');
+  await page.emulateMedia({media:'print'});
+  await expect(page.locator('.outcome-report')).toBeVisible();
+  await expect(page.locator('.shell aside')).toBeHidden();
+  await expect(page.locator('.outcome-report .outcome-controls')).toBeHidden();
+  await expect(page.locator('.outcome-report .outcome-row .btn').first()).toBeHidden();
+  await expect(page.getByRole('heading',{name:'내 프로젝트',exact:true})).toHaveCount(0);
+  const color=await page.locator('.outcome-report').evaluate(node=>getComputedStyle(node).color);
+  expect(color).toBe('rgb(17, 17, 17)');
+  await page.emulateMedia({media:'screen'});
+  await expect(page.locator('.outcome-report .outcome-controls')).toBeVisible();
+});
+
+test('report actions stay touch-friendly on narrow phones without overflowing', async ({page}) => {
+  await page.setViewportSize({width:320,height:720});
+  await createProject(page,'웹사이트','모바일 공유 테스트');
+  await expect(page.locator('.outcome-controls .btn')).toHaveCount(3);
+  const result=await page.evaluate(()=>{
+    const buttons=[...document.querySelectorAll('.outcome-controls .btn')];
+    return {width:document.documentElement.scrollWidth,viewport:innerWidth,minHeight:Math.min(...buttons.map(b=>b.getBoundingClientRect().height))};
+  });
+  expect(result.width).toBeLessThanOrEqual(result.viewport);
+  expect(result.minHeight).toBeGreaterThanOrEqual(44);
+});
