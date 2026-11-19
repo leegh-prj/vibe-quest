@@ -4,7 +4,7 @@ const html = fs.readFileSync('index.html', 'utf8');
 const blocks = [...html.matchAll(new RegExp('<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>', 'g'))];
 if (blocks.length === 0) throw new Error('No inline JavaScript blocks found');
 for (const [tag, source] of blocks) {
-  if (/^<script\\b[^>]*\\bsrc\\s*=/.test(tag)) continue;
+  if (tag.startsWith('<script ') && tag.slice(0,tag.indexOf('>')).includes('src=')) continue;
   if (!source.trim()) throw new Error('Empty inline JavaScript block');
   new vm.Script(source, { filename: 'index.html' });
 }
