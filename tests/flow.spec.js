@@ -931,3 +931,43 @@ test('report actions stay touch-friendly on narrow phones without overflowing', 
   expect(result.width).toBeLessThanOrEqual(result.viewport);
   expect(result.minHeight).toBeGreaterThanOrEqual(44);
 });
+
+test('project switch rolls back in-memory state when local storage is unavailable', async ({page}) => {
+  await createProject(page,'웹사이트','저장 실패 복구 A');
+  await createProject(page,'게임','저장 실패 복구 B',true);
+  await page.evaluate(()=>projectsPage());
+  const before=await page.evaluate(()=>JSON.stringify(data));
+  page.on('dialog',d=>d.accept());
+  const result=await page.evaluate(()=>{
+    const original=Storage.prototype.setItem;
+    Storage.prototype.setItem=function(){throw new Error('quota')};
+    try{return openProject(0)}finally{Storage.prototype.setItem=original}
+  });
+  expect(result).toBe(false);
+  expect(await page.evaluate(()=>JSON.stringify(data))).toBe(before);
+});
+
+test('project archive limit prevents new project without discarding existing learning state', async ({page}) => {
+  await createProject(page,'웹사이트','보존되어야 할 프로젝트');
+  const state=await page.evaluate(()=>{
+    const template=snapshot();data.projects=Array.from({length:30},(_,i)=>({...template,activeId:'saved-'+i}));
+    save();return JSON.stringify(data);
+  });
+  page.on('dialog',d=>d.accept());
+  expect(await page.evaluate(()=>start())).toBe(false);
+  expect(await page.evaluate(()=>JSON.stringify(data))).toBe(state);
+  await expect(page.locator('.outcome-report')).toBeVisible();
+});
+
+test('new project creation rolls back safely if storage cannot persist', async ({page})=>{
+  await createProject(page,'웹사이트','현재 프로젝트 내용');
+  const before=await page.evaluate(()=>JSON.stringify(data));
+  page.on('dialog',d=>d.accept());
+  const result=await page.evaluate(()=>{
+    const original=Storage.prototype.setItem;
+    Storage.prototype.setItem=()=>{throw new Error('quota')};
+    try{return start()}finally{Storage.prototype.setItem=original}
+  });
+  expect(result).toBe(false);
+  expect(await page.evaluate(()=>JSON.stringify(data))).toBe(before);
+});
