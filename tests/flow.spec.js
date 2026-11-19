@@ -1000,3 +1000,37 @@ test('failed starter criteria persistence rolls back checkbox and stored status'
   await expect(page.locator('#feedback')).toContainText('기존 상태로 복원');
   expect(await page.evaluate(()=>localStorage.getItem('vibequest-v1'))).toBe(before);
 });
+
+test('project store normalizes legacy backup and keeps learning fields', async ({page})=>{
+ const result=await page.evaluate(()=>{
+   const types={web:true,game:true};
+   const payload={format:'vibequest-backup',version:1,data:{
+      type:'web',description:'이전 백업 프로젝트',done:[true,false],goalReviews:[{status:'tested',evidence:'실기기 직접 확인'}],
+      retryLogs:{0:[{problem:'작동 안함',expected:'작동',status:'retry'}]},
+      starterChecks:{0:[true,false]},projects:[]
+   }};
+   return VibeProjectStore.restoreBackup(payload,types,{cleanGoalReviews,cleanRetryLogs,cleanStarterChecks});
+ });
+ expect(result.description).toBe('이전 백업 프로젝트');
+ expect(result.goalReviews[0].status).toBe('tested');
+ expect(result.retryLogs['0']).toHaveLength(1);
+ expect(result.starterChecks['0']).toEqual([true,false]);
+ expect(result.done).toEqual([true,false]);
+});
+
+test('project store rejects invalid and excessive backup projects before replacing data', async ({page})=>{
+ const result=await page.evaluate(()=>{
+  const types={web:true};
+  const p={type:'web',description:'정상 프로젝트',done:[]};
+  const base={format:'vibequest-backup',version:1,data:{...p,projects:[]}};
+  const tooMany={...base,data:{...p,projects:Array.from({length:31},()=>p)}};
+  const invalid={...base,data:{...p,projects:[{type:'broken',description:'bad',done:[]}]}};
+  const existing=Array.from({length:30},(_,i)=>({activeId:'p'+i}));
+  const appended=VibeProjectStore.putProject(existing,{activeId:'new'});
+  const overwritten=VibeProjectStore.putProject(existing,{activeId:'p0',done:[true]});
+  return {valid:VibeProjectStore.validateBackup(base,types),tooMany:VibeProjectStore.validateBackup(tooMany,types),
+     invalid:VibeProjectStore.validateBackup(invalid,types),appendOk:appended.ok,
+     overwriteOk:overwritten.ok,overwriteCount:overwritten.projects.length};
+ });
+ expect(result).toEqual({valid:true,tooMany:false,invalid:false,appendOk:false,overwriteOk:true,overwriteCount:30});
+});
