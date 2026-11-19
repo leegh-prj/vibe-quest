@@ -971,3 +971,32 @@ test('new project creation rolls back safely if storage cannot persist', async (
   expect(result).toBe(false);
   expect(await page.evaluate(()=>JSON.stringify(data))).toBe(before);
 });
+
+test('failed goal review persistence restores prior statuses and evidence in the UI', async ({page})=>{
+  await createProject(page,'웹사이트','기능 검증 저장 실패');
+  const before=await page.evaluate(()=>localStorage.getItem('vibequest-v1'));
+  await page.evaluate(()=>{
+    const orig=Storage.prototype.setItem;
+    Storage.prototype.setItem=()=>{throw new Error('quota')};
+    try{const el=document.getElementById('goalStatus0');el.value='built';saveGoalReview()}
+    finally{Storage.prototype.setItem=orig}
+  });
+  await expect(page.locator('#goalStatus0')).toHaveValue('planned');
+  await expect(page.locator('#goalReviewSummary')).toContainText('구현 0/3개');
+  await expect(page.locator('#goalSaveMessage')).toContainText('기존 기록으로 복원');
+  expect(await page.evaluate(()=>localStorage.getItem('vibequest-v1'))).toBe(before);
+});
+
+test('failed starter criteria persistence rolls back checkbox and stored status', async ({page})=>{
+  await createProject(page,'게임','클릭 점수 게임');
+  await page.evaluate(()=>{data.description=STARTER_TEMPLATES.game[0].idea;save();quest(0)});
+  const before=await page.evaluate(()=>localStorage.getItem('vibequest-v1'));
+  await page.evaluate(()=>{
+    const orig=Storage.prototype.setItem;Storage.prototype.setItem=()=>{throw new Error('quota')};
+    try{const el=document.querySelector('.starter-checks input');el.checked=true;saveStarterCheck(0,0,true)}
+    finally{Storage.prototype.setItem=orig}
+  });
+  await expect(page.locator('.starter-checks input').first()).not.toBeChecked();
+  await expect(page.locator('#feedback')).toContainText('기존 상태로 복원');
+  expect(await page.evaluate(()=>localStorage.getItem('vibequest-v1'))).toBe(before);
+});
