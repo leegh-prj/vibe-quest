@@ -39,7 +39,7 @@ function validProject(p,types){
  if(p.aiPlan!==undefined&&(typeof p.aiPlan!=='string'||p.aiPlan.length>50000))return false;
  if(p.goalReviews!==undefined&&(!Array.isArray(p.goalReviews)||p.goalReviews.length>3||!p.goalReviews.every(x=>isObject(x)&&['planned','built','tested'].includes(x.status)&&typeof x.evidence==='string'&&x.evidence.length<=600)))return false;
  if(p.starterChecks!==undefined&&!validCheckMap(p.starterChecks,2))return false;
- if(p.retryLogs!==undefined&&(!isObject(p.retryLogs)||!stageKeys(p.retryLogs)||!Object.values(p.retryLogs).every(a=>Array.isArray(a)&&a.length<=5&&a.every(x=>isObject(x)&&['retry','resolved'].includes(x.status)&&['problem','expected','before','after'].every(k=>typeof x[k]==='string'&&x[k].length<=500)))))return false;
+ if(p.retryLogs!==undefined&&(!isObject(p.retryLogs)||!stageKeys(p.retryLogs)||!Object.values(p.retryLogs).every(a=>Array.isArray(a)&&a.length<=5&&a.every(x=>isObject(x)&&['retry','resolved'].includes(x.status)&&['problem','expected','before','after'].every(k=>x[k]===undefined||(typeof x[k]==='string'&&x[k].length<=500))))))return false;
  if(p.current!==undefined&&p.current!==null&&(!Number.isInteger(p.current)||p.current<0||p.current>6))return false;
  if(p.activeId!==undefined&&(typeof p.activeId!=='string'||p.activeId.length>150))return false;
  return true;
