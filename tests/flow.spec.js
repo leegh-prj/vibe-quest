@@ -1034,3 +1034,47 @@ test('project store rejects invalid and excessive backup projects before replaci
  });
  expect(result).toEqual({valid:true,tooMany:false,invalid:false,appendOk:false,overwriteOk:true,overwriteCount:30});
 });
+
+test('backup rejects malformed nested evidence and check records without touching current save', async ({ page }) => {
+ await page.evaluate(() => localStorage.clear());
+ await page.reload();
+ await page.getByRole('button', { name: /새 프로젝트 시작하기/ }).click();
+ await page.getByRole('button', { name: /다음/ }).click();
+ await page.locator('#idea').fill('백업 스키마 검증');
+ await page.getByRole('button', { name: /다음/ }).click();
+ await page.getByRole('button', { name: /다음/ }).click();
+ await page.getByRole('button', { name: /맞춤 로드맵 만들기/ }).click();
+ const result=await page.evaluate(() => {
+  const types={web:1,game:1};
+  const good={type:'web',description:'기존 프로젝트',done:[false],evidence:{0:'작업 증빙'},notes:{},criteria:{0:[true,false,false]},quizPassed:{0:false},qa:{},aiHistory:{}};
+  const wrap=x=>({format:'vibequest-backup',version:1,data:{...good,...x,projects:[]}});
+  const cases=[
+   wrap({evidence:{0:['잘못된 자료']}}),
+   wrap({notes:{8:'존재하지 않는 단계'}}),
+   wrap({criteria:{0:[true,'yes',false]}}),
+   wrap({qa:{0:new Array(21).fill(true)}}),
+   wrap({quizPassed:{0:'true'}}),
+   wrap({aiHistory:{0:[{question:'질문',answer:42}]}}),
+   wrap({retryLogs:{0:[{problem:'문제',expected:'기대',before:'전',after:'후',status:'unknown'}]}}),
+   wrap({starterChecks:{0:[true,'yes']}}),
+   wrap({goalReviews:[{status:'tested',evidence:['근거']}]})
+  ];
+  const older={format:'vibequest-backup',version:1,data:{type:'web',description:'이전 버전',done:[],projects:[]}};
+  return {good:VibeProjectStore.validateBackup(wrap({}),types),older:VibeProjectStore.validateBackup(older,types),invalid:cases.map(x=>VibeProjectStore.validateBackup(x,types))};
+ });
+ expect(result).toEqual({good:true,older:true,invalid:new Array(9).fill(false)});
+});
+
+test('backup rejects malformed nested records inside archived projects', async ({ page }) => {
+ const result=await page.evaluate(() => {
+  const types={web:1};
+  const base={type:'web',description:'원본',done:[],projects:[]};
+  const wrap=archived=>({format:'vibequest-backup',version:1,data:{...base,projects:[archived]}});
+  return [
+   VibeProjectStore.validateBackup(wrap({type:'web',description:'정상',done:[],notes:{0:'기록'}}),types),
+   VibeProjectStore.validateBackup(wrap({type:'web',description:'오염',done:[],notes:{0:{nested:'bad'}}}),types),
+   VibeProjectStore.validateBackup(wrap({type:'web',description:'오염',done:[],aiHistory:{0:[null]}}),types)
+  ];
+ });
+ expect(result).toEqual([true,false,false]);
+});
