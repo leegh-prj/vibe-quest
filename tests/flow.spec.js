@@ -1078,3 +1078,27 @@ test('backup rejects malformed nested records inside archived projects', async (
  });
  expect(result).toEqual([true,false,false]);
 });
+
+test('outcome module computes report without mutating caller and serializes status safely', async ({ page }) => {
+ const result=await page.evaluate(() => {
+  const data={done:[true,false,false,false,false,false,false],evidence:{0:'증빙 자료'},retryLogs:{0:[{problem:'버튼 문제',status:'retry'}],1:[{problem:'저장 문제',status:'resolved'}]}};
+  const before=JSON.stringify(data);
+  const report=VibeOutcomeReport.build(data,['기획','구현','꾸미기','테스트','수정','배포','완료'],['첫 화면','저장','내보내기'],'모듈 테스트','웹사이트',[{status:'tested',evidence:'직접 확인'},{status:'built',evidence:''},{status:'planned',evidence:''}]);
+  return {same:JSON.stringify(data)===before,summary:report.summary,text:VibeOutcomeReport.toText(report)};
+ });
+ expect(result.same).toBe(true);
+ expect(result.summary).toMatchObject({completedQuests:1,testedFeatures:1,builtFeatures:2,retryRecords:2,unresolvedTopics:1,resolvedTopics:1});
+ expect(result.text).toContain('프로젝트: 모듈 테스트');
+ expect(result.text).toContain('버튼 문제');
+});
+
+test('dashboard uses extracted outcome module and preserves browser records after reload', async ({ page }) => {
+ await createProject(page, '웹사이트', '성과 리포트 모듈화 테스트');
+ await expect(page.locator('#outcomeReportTitle')).toBeVisible();
+ const before=await page.evaluate(()=>localStorage.getItem('vibequest-v1'));
+ await page.reload();
+ await expect(page.locator('#outcomeReportTitle')).toBeVisible();
+ const after=await page.evaluate(()=>localStorage.getItem('vibequest-v1'));
+ expect(after).toBe(before);
+ await expect(page.getByText('성과 리포트', { exact: false }).first()).toBeVisible();
+});
