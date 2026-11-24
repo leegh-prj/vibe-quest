@@ -212,3 +212,22 @@ test('iPhone QA import cancellation leaves local issues untouched', async ({ pag
   await expect(page.locator('#issueImportPreview')).toBeHidden();
   await expect(page.locator('#issueCount')).toContainText('등록 0개');
 });
+
+test('iPhone Safari navigates modular dashboard and quest with preserved draft', async ({ page }) => {
+  await page.getByRole('button', { name: /새 프로젝트 시작하기/ }).tap();
+  await page.getByRole('button', { name: /다음/ }).tap();
+  await page.locator('#idea').fill('분리된 모바일 화면 검증');
+  await page.getByRole('button', { name: /다음/ }).tap();
+  await page.getByRole('button', { name: /다음/ }).tap();
+  await page.getByRole('button', { name: /맞춤 로드맵 만들기/ }).tap();
+  await expect(page.locator('#outcomeReportTitle')).toBeVisible();
+  await page.locator('.step').first().tap();
+  await page.locator('#memo').fill('사파리에서 작성한 보존 기록');
+  await page.getByRole('button', { name: /내 로드맵/ }).tap();
+  await expect(page.locator('#outcomeReportTitle')).toBeVisible();
+  await page.reload();
+  await page.evaluate(() => dashboard());
+  await page.locator('.step').first().tap();
+  await expect(page.locator('#memo')).toHaveValue('사파리에서 작성한 보존 기록');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+});
