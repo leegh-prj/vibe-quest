@@ -1097,6 +1097,7 @@ test('dashboard uses extracted outcome module and preserves browser records afte
  await expect(page.locator('#outcomeReportTitle')).toBeVisible();
  const before=await page.evaluate(()=>localStorage.getItem('vibequest-v1'));
  await page.reload();
+ await page.evaluate(() => dashboard());
  await expect(page.locator('#outcomeReportTitle')).toBeVisible();
  const after=await page.evaluate(()=>localStorage.getItem('vibequest-v1'));
  expect(after).toBe(before);
