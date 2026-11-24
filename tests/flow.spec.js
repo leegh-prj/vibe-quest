@@ -1103,3 +1103,39 @@ test('dashboard uses extracted outcome module and preserves browser records afte
  expect(after).toBe(before);
  await expect(page.getByText('성과 리포트', { exact: false }).first()).toBeVisible();
 });
+
+test('dashboard and quest use independent view modules without changing saved project state', async ({ page }) => {
+ await createProject(page, '웹사이트', '화면 모듈화 검증');
+ await expect(page.locator('#outcomeReportTitle')).toBeVisible();
+ const before=await page.evaluate(()=>localStorage.getItem('vibequest-v1'));
+ const modules=await page.evaluate(()=>({
+   dashboard:typeof VibeDashboardView?.render,
+   quest:typeof VibeQuestView?.render,
+   frozen:Object.isFrozen(VibeDashboardView)&&Object.isFrozen(VibeQuestView)
+ }));
+ expect(modules).toEqual({dashboard:'function',quest:'function',frozen:true});
+ await page.locator('.step').first().click();
+ await expect(page.locator('#memo')).toBeVisible();
+ await expect(page.locator('#completionGuide')).toBeVisible();
+ await page.locator('#memo').fill('모듈화 후 저장 확인');
+ await page.getByRole('button',{name:/내 로드맵/}).click();
+ await expect(page.locator('#outcomeReportTitle')).toBeVisible();
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('vibequest-v1')));
+ expect(saved.notes['0']).toBe('모듈화 후 저장 확인');
+ expect(before).not.toBeNull();
+});
+
+test('separated dashboard and quest remain usable on a 320px screen', async ({ page }) => {
+ await page.setViewportSize({width:320,height:700});
+ await createProject(page, '게임', '작은 화면 렌더링 확인');
+ await expect(page.locator('.step')).toHaveCount(7);
+ await page.locator('.step').first().click();
+ await expect(page.locator('#result')).toBeVisible();
+ await page.locator('#memo').fill('작은 화면에서 작성한 메모');
+ const overflowing=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);
+ expect(overflowing).toBe(false);
+ await page.reload();
+ await page.evaluate(()=>dashboard());
+ await page.locator('.step').first().click();
+ await expect(page.locator('#memo')).toHaveValue('작은 화면에서 작성한 메모');
+});
